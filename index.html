@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Minigames</title>
+<link rel="stylesheet" href="shared/style.css">
+<style>.msg{grid-column:1/-1;color:var(--mut);font-size:14px;line-height:1.6}</style>
+</head>
+<body>
+<div id="stars"></div>
+<main>
+  <h1>MINIGAMES</h1>
+  <p class="sub">Wähle ein Spiel</p>
+  <div class="grid" id="grid"></div>
+  <p class="foot">Weitere Spiele folgen.</p>
+</main>
+<script src="shared/core.js"></script>
+<script src="games/games.js"></script>
+<script>
+// Die Spieleliste kommt aus games/games.js (wird aus den game.json-Dateien
+// der Spielordner erzeugt, siehe scripts/build_manifest.py).
+Core.stars(document.getElementById('stars'));
+var grid = document.getElementById('grid');
+
+function msg(text) {
+  var p = document.createElement('p');
+  p.className = 'msg';
+  p.textContent = text;
+  grid.appendChild(p);
+}
+
+var list = window.GAMES;
+if (!Array.isArray(list)) {
+  msg('Die Spieleliste (games/games.js) fehlt. Führe scripts/build_manifest.py aus oder prüfe auf GitHub, ' +
+      'ob der Workflow unter Actions erfolgreich war.');
+} else if (!list.length) {
+  msg('Noch keine Spiele vorhanden.');
+} else {
+  list.forEach(function (g) {
+    var a = document.createElement('a');
+    a.className = 'tile';
+    a.href = 'games/' + g.id + '/index.html';
+    a.style.setProperty('--c', g.color);
+    var h = document.createElement('h2'); h.textContent = g.title;
+    var p = document.createElement('p'); p.textContent = g.desc;
+    var r = document.createElement('span'); r.className = 'rec';
+    r.textContent = 'Rekord: ' + Core.getHi(g.hiKey);
+    a.appendChild(h); a.appendChild(p); a.appendChild(r);
+    grid.appendChild(a);
+  });
+  var soon = document.createElement('div');
+  soon.className = 'tile soon';
+  soon.innerHTML = '<h2>Bald mehr</h2><p>Hier erscheint das nächste Spiel.</p>';
+  grid.appendChild(soon);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "title": "NEUES SPIEL",
+  "desc": "Kurze Beschreibung für die Kachel im Menü (ein bis zwei Sätze).",
+  "hiKey": "template_hi",
+  "color": "#ff4d4d",
+  "order": 99
+}

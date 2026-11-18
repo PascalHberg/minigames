@@ -1,0 +1,35 @@
+/* shared/style.css – gemeinsames Retro-Design für alle Minispiele */
+:root{
+  --bg:#050818; --lane:#0a1030; --edge:#3b4cff; --txt:#dfe6ff; --mut:#8a97d6; --led:#3dff6a;
+  color-scheme:dark;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0;min-height:100%}
+body{
+  background:var(--bg); color:var(--txt);
+  font-family:"Orbitron","Trebuchet MS",Arial,sans-serif;
+}
+#stars{position:fixed;left:0;top:0;width:1px;height:1px;border-radius:50%;pointer-events:none}
+
+/* Menü */
+main{position:relative;max-width:860px;margin:0 auto;padding:40px 20px 60px;text-align:center}
+h1{margin:0 0 6px;font-size:clamp(28px,7vw,52px);letter-spacing:.08em;color:#fff;text-shadow:0 0 18px var(--edge),0 0 40px var(--edge)}
+.sub{margin:0 0 34px;color:var(--mut);font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px}
+.tile{
+  display:flex;flex-direction:column;gap:10px;text-align:left;text-decoration:none;color:var(--txt);
+  background:var(--lane);border:2px solid var(--c,var(--edge));border-radius:12px;padding:20px;
+  box-shadow:0 0 18px color-mix(in srgb,var(--c,var(--edge)) 55%,transparent),inset 0 0 26px rgba(59,76,255,.15);
+  transition:transform .15s ease,box-shadow .15s ease;
+}
+.tile:hover,.tile:focus-visible{transform:translateY(-3px);outline:none;box-shadow:0 0 28px var(--c,var(--edge)),inset 0 0 26px rgba(59,76,255,.25)}
+.tile:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.tile h2{margin:0;font-size:22px;letter-spacing:.06em;color:#fff}
+.tile p{margin:0;font-size:13px;line-height:1.5;color:var(--mut)}
+.rec{margin-top:auto;font-size:13px;color:var(--led)}
+.tile.soon{border-style:dashed;opacity:.55;box-shadow:none}
+.tile.soon:hover{transform:none}
+.foot{margin-top:40px;font-size:12px;color:var(--mut)}
