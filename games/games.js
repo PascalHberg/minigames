@@ -23,7 +23,7 @@ window.GAMES = [
     "hiKey": "memory_hi",
     "color": "#3b4cff",
     "order": 4
-  }
+  },
   {
     "id": "kernelpanic",
     "title": "Kernel Panic",
