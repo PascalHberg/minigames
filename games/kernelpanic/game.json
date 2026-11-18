@@ -1,7 +1,7 @@
 {
-  "id": "kernelpanic",
   "title": "Kernel Panic",
-  "description": "Überlebe endlose Malware-Wellen in diesem Neon-Roguelike-Autoshooter und kombiniere Firewall-Upgrades.",
-  "accent": "#2fd6c2",
-  "controls": "WASD / Pfeiltasten oder Touch-Joystick zum Bewegen"
+  "desc": "Überlebe endlose Malware-Wellen und kombiniere Firewall-Upgrades.",
+  "hiKey": "kernelpanic_hi",
+  "color": "#2fd6c2",
+  "order": 5
 }
