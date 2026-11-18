@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MEMORY</title>
+  <link rel="stylesheet" href="../../shared/style.css">
+  <script src="../../shared/core.js"></script>
+  <style>
+    :root {
+      --bg: #050818;
+      --lane: #0a1030;
+      --edge: #3b4cff;
+      --grid: #cfd8ff;
+      --led: #3dff6a;
+      --ledoff: #12331c;
+      --red: #ff2a2a;
+      --txt: #dfe6ff;
+      --mut: #8a97d6;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--txt);
+      font-family: monospace, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    header {
+      width: 100%;
+      max-width: 720px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--edge);
+      padding-bottom: 10px;
+      margin-bottom: 14px;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.4rem;
+      letter-spacing: 2px;
+      color: var(--txt);
+    }
+
+    .stats {
+      display: flex;
+      gap: 16px;
+      font-size: 0.95rem;
+      color: var(--mut);
+    }
+
+    .stats span strong {
+      color: var(--led);
+    }
+
+    .controls {
+      width: 100%;
+      max-width: 720px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .size-selector {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .size-selector span {
+      color: var(--mut);
+      font-size: 0.9rem;
+      margin-right: 4px;
+    }
+
+    button {
+      background: var(--lane);
+      color: var(--txt);
+      border: 1px solid var(--edge);
+      padding: 6px 12px;
+      font-family: inherit;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    button:hover {
+      background: #131d52;
+    }
+
+    button.active {
+      background: var(--edge);
+      color: #fff;
+      font-weight: bold;
+    }
+
+    #board {
+      width: 100%;
+      max-width: 720px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .card {
+      aspect-ratio: 1 / 1;
+      background: var(--lane);
+      border: 2px solid var(--edge);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: clamp(1.2rem, 3vw, 2rem);
+      font-weight: bold;
+      color: var(--txt);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.15s, border-color 0.2s, background 0.2s;
+    }
+
+    .card:hover:not(.flipped):not(.matched) {
+      border-color: var(--grid);
+      transform: translateY(-2px);
+    }
+
+    .card .back {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: repeating-linear-gradient(
+        45deg,
+        var(--lane),
+        var(--lane) 8px,
+        #0e1742 8px,
+        #0e1742 16px
+      );
+      color: var(--edge);
+      font-size: 1.2rem;
+    }
+
+    .card .front {
+      display: none;
+      width: 100%;
+      height: 100%;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+      background: #0f1847;
+    }
+
+    .card .front img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 3px;
+    }
+
+    .card.flipped .back,
+    .card.matched .back {
+      display: none;
+    }
+
+    .card.flipped .front,
+    .card.matched .front {
+      display: flex;
+    }
+
+    .card.matched {
+      border-color: var(--led);
+      cursor: default;
+    }
+
+    .card.matched .front {
+      background: var(--ledoff);
+      color: var(--led);
+    }
+
+    #status {
+      margin-top: 16px;
+      min-height: 24px;
+      color: var(--led);
+      font-size: 1rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>MEMORY</h1>
+    <div class="stats">
+      <span>ZÜGE: <strong id="moves">0</strong></span>
+      <span>PAARE: <strong id="pairs">0/0</strong></span>
+      <span>BESTWERT (<span id="hi-size">16</span>): <strong id="hi-score">-</strong></span>
+    </div>
+  </header>
+
+  <div class="controls">
+    <div class="size-selector">
+      <span>KARTEN:</span>
+      <button data-size="4">4</button>
+      <button data-size="8">8</button>
+      <button data-size="16" class="active">16</button>
+      <button data-size="32">32</button>
+    </div>
+    <button id="restart-btn">NEU STARTEN</button>
+  </div>
+
+  <div id="board"></div>
+  <div id="status"></div>
+
+  <script>
+    const HI_KEY = 'memory_hi';
+
+    // HIER SPÄTER DEINE BILD-PFADE EINTRAGEN (16 Stück für bis zu 32 Karten)
+    // Beispiel: 'img/bild01.png', 'img/bild02.png', ...
+    const CARD_POOL = [
+      '01', '02', '03', '04',
+      '05', '06', '07', '08',
+      '09', '10', '11', '12',
+      '13', '14', '15', '16'
+    ];
+
+    let cardCount = 16;
+    let flippedCards = [];
+    let matchedPairs = 0;
+    let moves = 0;
+    let lockBoard = false;
+
+    const boardEl = document.getElementById('board');
+    const movesEl = document.getElementById('moves');
+    const pairsEl = document.getElementById('pairs');
+    const hiScoreEl = document.getElementById('hi-score');
+    const hiSizeEl = document.getElementById('hi-size');
+    const statusEl = document.getElementById('status');
+    const sizeButtons = document.querySelectorAll('.size-selector button');
+
+    // Highscores pro Kartenanzahl speichern (weniger Züge = besser)
+    function getBestMoves(size) {
+      if (typeof Core === 'undefined' || !Core.getHi) return null;
+      const data = Core.getHi(HI_KEY);
+      if (data && typeof data === 'object') {
+        return data[size] || null;
+      }
+      return null;
+    }
+
+    function saveBestMoves(size, newMoves) {
+      if (typeof Core === 'undefined' || !Core.setHi) return;
+      let data = Core.getHi(HI_KEY);
+      if (!data || typeof data !== 'object') {
+        data = {};
+      }
+      if (!data[size] || newMoves < data[size]) {
+        data[size] = newMoves;
+        Core.setHi(HI_KEY, data);
+      }
+    }
+
+    function updateHiDisplay() {
+      hiSizeEl.textContent = cardCount;
+      const best = getBestMoves(cardCount);
+      hiScoreEl.textContent = best ? `${best} Züge` : '-';
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function isImagePath(val) {
+      return /\.(png|jpe?g|gif|webp|svg)$/i.test(val) || val.startsWith('data:image/') || val.includes('/');
+    }
+
+    function setupGridColumns(count) {
+      const cols = {
+        4: 2,
+        8: 4,
+        16: 4,
+        32: 8
+      }[count] || 4;
+      boardEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    }
+
+    function initGame() {
+      flippedCards = [];
+      matchedPairs = 0;
+      moves = 0;
+      lockBoard = false;
+      statusEl.textContent = '';
+
+      const totalPairs = cardCount / 2;
+      movesEl.textContent = moves;
+      pairsEl.textContent = `0/${totalPairs}`;
+      updateHiDisplay();
+      setupGridColumns(cardCount);
+
+      const selectedItems = CARD_POOL.slice(0, totalPairs);
+      const deck = shuffle([...selectedItems, ...selectedItems]);
+
+      boardEl.innerHTML = '';
+
+      deck.forEach((value) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.dataset.value = value;
+
+        const back = document.createElement('div');
+        back.className = 'back';
+        back.textContent = '?';
+
+        const front = document.createElement('div');
+        front.className = 'front';
+
+        if (isImagePath(value)) {
+          const img = document.createElement('img');
+          img.src = value;
+          img.alt = 'Memory Karte';
+          front.appendChild(img);
+        } else {
+          front.textContent = value;
+        }
+
+        card.appendChild(back);
+        card.appendChild(front);
+        card.addEventListener('click', () => flipCard(card));
+        boardEl.appendChild(card);
+      });
+    }
+
+    function flipCard(card) {
+      if (lockBoard) return;
+      if (card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+      card.classList.add('flipped');
+      flippedCards.push(card);
+
+      if (flippedCards.length === 2) {
+        moves++;
+        movesEl.textContent = moves;
+        checkMatch();
+      }
+    }
+
+    function checkMatch() {
+      const [card1, card2] = flippedCards;
+      const isMatch = card1.dataset.value === card2.dataset.value;
+
+      if (isMatch) {
+        card1.classList.add('matched');
+        card2.classList.add('matched');
+        flippedCards = [];
+        matchedPairs++;
+
+        const totalPairs = cardCount / 2;
+        pairsEl.textContent = `${matchedPairs}/${totalPairs}`;
+
+        if (matchedPairs === totalPairs) {
+          saveBestMoves(cardCount, moves);
+          updateHiDisplay();
+          statusEl.textContent = `GESCHAFFT IN ${moves} ZÜGEN!`;
+        }
+      } else {
+        lockBoard = true;
+        setTimeout(() => {
+          card1.classList.remove('flipped');
+          card2.classList.remove('flipped');
+          flippedCards = [];
+          lockBoard = false;
+        }, 700);
+      }
+    }
+
+    sizeButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        sizeButtons.forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        cardCount = parseInt(btn.dataset.size, 10);
+        initGame();
+      });
+    });
+
+    document.getElementById('restart-btn').addEventListener('click', initGame);
+
+    initGame();
+  </script>
+</body>
+</html>
