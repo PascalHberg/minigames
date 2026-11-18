@@ -24,4 +24,12 @@ window.GAMES = [
     "color": "#3b4cff",
     "order": 4
   }
+  {
+    "id": "kernelpanic",
+    "title": "Kernel Panic",
+    "desc": "Überlebe endlose Malware-Wellen und kombiniere Firewall-Upgrades.",
+    "hiKey": "kernelpanic_hi",
+    "color": "#2fd6c2",
+    "order": 5
+  }
 ];
