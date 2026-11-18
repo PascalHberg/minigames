@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kernel Panic</title>
+<link rel="stylesheet" href="../../shared/style.css">
+<style>
+body{display:flex;justify-content:center;align-items:center;min-height:100svh;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+.wrap{position:relative;display:flex;flex-direction:column;gap:10px;padding:10px}
+.back{align-self:flex-start;color:var(--mut);font-size:12px;text-decoration:none;border:1px solid var(--edge);border-radius:6px;padding:6px 10px}
+canvas{display:block;width:min(480px,calc(100vw - 26px),calc((100svh - 80px) * 3 / 4));height:auto;aspect-ratio:3/4;background:var(--lane);border:3px solid var(--edge);box-shadow:0 0 22px rgba(59,76,255,.7),inset 0 0 30px rgba(59,76,255,.25);cursor:pointer;outline:none}
+.back:focus-visible,canvas:focus-visible{outline:2px solid #fff}
+</style>
+</head>
+<body>
+<div id="stars"></div>
+<div class="wrap">
+  <a class="back" href="../../index.html">← Menü</a>
+  <canvas id="g" width="480" height="640" tabindex="0" aria-label="Kernel Panic Spielfeld"></canvas>
+</div>
+<script src="../../shared/core.js"></script>
+<script>
+(function(){
+var KEY='kernelpanic_hi',W=480,H=640,cv=document.getElementById('g'),ctx=cv.getContext('2d');
+Core.stars(document.getElementById('stars'));
+
+var st='ready',score=0,hi=Core.getHi(KEY),time=0,xp=0,nextXp=10,lv=1;
+var pl={x:W/2,y:H/2,r:11,hp:100,maxHp:100,spd:175,hurt:0,magnet:65};
+var wpn={pulse:1,pulseCd:0,orb:0,orbAng:0,arc:0,arcCd:0,dmg:12,rate:1};
+var enemies=[],bullets=[],gems=[],particles=[],bolts=[],choices=[];
+var spawnT=0,keys={u:0,d:0,l:0,r:0},joy={active:false,sx:0,sy:0,cx:0,cy:0};
+
+var UPGRADES=[
+  {id:'pulse',name:'PACKET PULSE +1',desc:'Mehr Projektile pro Salve',col:'#3db8ff',apply:function(){wpn.pulse++;}},
+  {id:'orb',name:'FIREWALL ORB +1',desc:'Rotierender Schutzschild-Kern',col:'#2fd6c2',apply:function(){wpn.orb++;}},
+  {id:'arc',name:'CHAIN EXPLOIT',desc:'Kettenblitz springt auf Gegner',col:'#ff4dff',apply:function(){wpn.arc++;}},
+  {id:'rate',name:'OVERCLOCK +20%',desc:'Schnellere Feuerrate aller Systeme',col:'#ffd84d',apply:function(){wpn.rate*=1.2;}},
+  {id:'dmg',name:'PAYLOAD +25%',desc:'Mehr Schaden pro Treffer',col:'#ff6b4d',apply:function(){wpn.dmg=Math.round(wpn.dmg*1.25);}},
+  {id:'spd',name:'KERNEL BOOST',desc:'+15% Tempo & +25% Sammelradius',col:'#3dff6a',apply:function(){pl.spd*=1.15;pl.magnet*=1.25;}},
+  {id:'heal',name:'SYSTEM PATCH',desc:'Stellt 45 Integrität (HP) wieder her',col:'#7dffb3',apply:function(){pl.hp=Math.min(pl.maxHp,pl.hp+45);}}
+];
+
+function start(){
+  score=0;time=0;xp=0;nextXp=10;lv=1;
+  pl={x:W/2,y:H/2,r:11,hp:100,maxHp:100,spd:175,hurt:0,magnet:65};
+  wpn={pulse:1,pulseCd:0,orb:0,orbAng:0,arc:0,arcCd:0,dmg:12,rate:1};
+  enemies=[];bullets=[];gems=[];particles=[];bolts=[];choices=[];
+  spawnT=0.5;st='play';
+  Core.tone(440,.12,'triangle',.08,880);
+}
+
+function over(){
+  st='over';
+  var pts=Math.floor(score+time*5);
+  score=pts;
+  if(score>hi){hi=score;Core.setHi(KEY,hi);}
+  Core.tone(130,.7,'sawtooth',.14,32);
+}
+
+function boom(x,y,c,n){
+  for(var i=0;i<(n||8);i++){
+    var a=Math.random()*6.283,s=40+Math.random()*130;
+    particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,t:.38+Math.random()*.2,c:c});
+  }
+}
+
+function nearest(x,y,exclude){
+  var best=null,bd=1e9;
+  for(var i=0;i<enemies.length;i++){
+    var e=enemies[i];
+    if(exclude&&exclude.indexOf(e)>=0)continue;
+    var d=Math.hypot(e.x-x,e.y-y);
+    if(d<bd){bd=d;best=e;}
+  }
+  return best;
+}
+
+function spawnEnemy(){
+  var side=Math.floor(Math.random()*4),x=0,y=0;
+  if(side===0){x=Math.random()*W;y=-18;}
+  else if(side===1){x=W+18;y=Math.random()*H;}
+  else if(side===2){x=Math.random()*W;y=H+18;}
+  else{x=-18;y=Math.random()*H;}
+
+  var diff=1+time/45;
+  var roll=Math.random();
+  if(time>25&&roll<0.18){
+    // Schwerer Trojaner (Hexagon)
+    enemies.push({x:x,y:y,r:16,hp:Math.round(42*diff),maxHp:Math.round(42*diff),spd:52+Math.min(35,time*.3),col:'#ffb020',pts:30,xp:4,shape:'hex',hitT:0});
+  }else if(time>12&&roll<0.42){
+    // Schneller Worm (Dreieck)
+    enemies.push({x:x,y:y,r:9,hp:Math.round(11*diff),maxHp:Math.round(11*diff),spd:122+Math.min(55,time*.5),col:'#ff4dff',pts:15,xp:2,shape:'tri',hitT:0});
+  }else{
+    // Standard-Virus (Quadrat)
+    enemies.push({x:x,y:y,r:11,hp:Math.round(18*diff),maxHp:Math.round(18*diff),spd:82+Math.min(45,time*.4),col:'#ff4d4d',pts:10,xp:1,shape:'sq',hitT:0});
+  }
+}
+
+function damageEnemy(e,dmg){
+  e.hp-=dmg;
+  e.hitT=0.08;
+  if(e.hp<=0){
+    var idx=enemies.indexOf(e);
+    if(idx>=0){
+      enemies.splice(idx,1);
+      score+=e.pts;
+      boom(e.x,e.y,e.col,10);
+      gems.push({x:e.x,y:e.y,v:e.xp});
+      Core.tone(240,.08,'square',.04,90);
+    }
+  }
+}
+
+function triggerLevelUp(){
+  st='levelup';
+  var pool=UPGRADES.slice();
+  choices=[];
+  for(var i=0;i<3&&pool.length;i++){
+    var idx=Math.floor(Math.random()*pool.length);
+    choices.push(pool.splice(idx,1)[0]);
+  }
+  Core.tone(520,.12,'triangle',.09,780);
+  setTimeout(function(){Core.tone(780,.18,'triangle',.09,1040);},90);
+}
+
+function pickUpgrade(idx){
+  if(st!=='levelup'||!choices[idx])return;
+  choices[idx].apply();
+  st='play';
+  Core.tone(660,.15,'square',.07,1100);
+}
+
+function update(dt){
+  for(var i=particles.length-1;i>=0;i--){
+    var p=particles[i];p.x+=p.vx*dt;p.y+=p.vy*dt;p.t-=dt;
+    if(p.t<=0)particles.splice(i,1);
+  }
+  for(i=bolts.length-1;i>=0;i--){
+    bolts[i].t-=dt;if(bolts[i].t<=0)bolts.splice(i,1);
+  }
+  if(st!=='play')return;
+
+  time+=dt;
+  if(pl.hurt>0)pl.hurt-=dt;
+
+  // Spielerbewegung (Tastatur oder Touch-Joystick)
+  var dx=keys.r-keys.l,dy=keys.d-keys.u;
+  if(joy.active){
+    var jx=joy.cx-joy.sx,jy=joy.cy-joy.sy,jl=Math.hypot(jx,jy);
+    if(jl>6){dx=jx/jl;dy=jy/jl;}
+  }else if(dx!==0||dy!==0){
+    var l=Math.hypot(dx,dy);dx/=l;dy/=l;
+  }
+  pl.x=Math.max(18,Math.min(W-18,pl.x+dx*pl.spd*dt));
+  pl.y=Math.max(38,Math.min(H-36,pl.y+dy*pl.spd*dt));
+
+  // Gegner spawnen
+  spawnT-=dt;
+  if(spawnT<=0){
+    var batch=1+Math.floor(time/28);
+    for(var b=0;b<batch;b++)spawnEnemy();
+    spawnT=Math.max(0.28,1.25-time*0.011);
+  }
+
+  // Waffe 1: Automatischer Packet-Pulse auf nächste Ziele
+  wpn.pulseCd-=dt*wpn.rate;
+  if(wpn.pulseCd<=0&&enemies.length>0){
+    wpn.pulseCd=0.52;
+    var tg=nearest(pl.x,pl.y);
+    if(tg){
+      var baseAng=Math.atan2(tg.y-pl.y,tg.x-pl.x);
+      var count=wpn.pulse;
+      var spread=0.18;
+      for(var k=0;k<count;k++){
+        var ang=baseAng+(k-(count-1)/2)*spread;
+        bullets.push({x:pl.x,y:pl.y,vx:Math.cos(ang)*420,vy:Math.sin(ang)*420,dmg:wpn.dmg,life:1.3});
+      }
+      Core.tone(760,.05,'square',.03,420);
+    }
+  }
+
+  // Waffe 2: Rotierende Firewall-Orbs
+  if(wpn.orb>0){
+    wpn.orbAng+=3.4*dt;
+    var rad=46;
+    for(var o=0;o<wpn.orb;o++){
+      var a=wpn.orbAng+(o*6.28318/wpn.orb);
+      var ox=pl.x+Math.cos(a)*rad,oy=pl.y+Math.sin(a)*rad;
+      for(var ei=enemies.length-1;ei>=0;ei--){
+        var en=enemies[ei];
+        if(en.hitT<=0&&Math.hypot(ox-en.x,oy-en.y)<en.r+8){
+          damageEnemy(en,Math.round(wpn.dmg*0.85));
+          en.x+=Math.cos(a)*10;en.y+=Math.sin(a)*10;
+        }
+      }
+    }
+  }
+
+  // Waffe 3: Kettenblitz (Chain Exploit)
+  if(wpn.arc>0){
+    wpn.arcCd-=dt*wpn.rate;
+    if(wpn.arcCd<=0&&enemies.length>0){
+      wpn.arcCd=1.35;
+      var hitList=[],cur={x:pl.x,y:pl.y};
+      var jumps=1+wpn.arc;
+      for(var j=0;j<jumps;j++){
+        var nxt=nearest(cur.x,cur.y,hitList);
+        if(!nxt||Math.hypot(nxt.x-cur.x,nxt.y-cur.y)>190)break;
+        bolts.push({x1:cur.x,y1:cur.y,x2:nxt.x,y2:nxt.y,t:0.16});
+        hitList.push(nxt);
+        cur={x:nxt.x,y:nxt.y};
+      }
+      if(hitList.length){
+        hitList.forEach(function(h){damageEnemy(h,Math.round(wpn.dmg*1.1));});
+        Core.tone(980,.08,'sawtooth',.04,320);
+      }
+    }
+  }
+
+  // Projektile bewegen & Treffer prüfen
+  for(var bi=bullets.length-1;bi>=0;bi--){
+    var bl=bullets[bi];
+    bl.x+=bl.vx*dt;bl.y+=bl.vy*dt;bl.life-=dt;
+    var dead=bl.life<=0||bl.x<-20||bl.x>W+20||bl.y<-20||bl.y>H+20;
+    if(!dead){
+      for(var ej=enemies.length-1;ej>=0;ej--){
+        var e2=enemies[ej];
+        if(Math.hypot(bl.x-e2.x,bl.y-e2.y)<e2.r+4){
+          damageEnemy(e2,bl.dmg);
+          dead=true;break;
+        }
+      }
+    }
+    if(dead)bullets.splice(bi,1);
+  }
+
+  // Gegner bewegen & Kollision mit Spieler
+  for(var ek=enemies.length-1;ek>=0;ek--){
+    var e3=enemies[ek];
+    if(e3.hitT>0)e3.hitT-=dt;
+    var ang3=Math.atan2(pl.y-e3.y,pl.x-e3.x);
+    e3.x+=Math.cos(ang3)*e3.spd*dt;
+    e3.y+=Math.sin(ang3)*e3.spd*dt;
+    if(Math.hypot(pl.x-e3.x,pl.y-e3.y)<pl.r+e3.r){
+      if(pl.hurt<=0){
+        pl.hp-=16;
+        pl.hurt=0.45;
+        boom(pl.x,pl.y,'#ff4d4d',8);
+        Core.tone(160,.18,'sawtooth',.09,60);
+        if(pl.hp<=0){pl.hp=0;over();return;}
+      }
+      e3.x-=Math.cos(ang3)*18;
+      e3.y-=Math.sin(ang3)*18;
+    }
+  }
+
+  // Daten-Fragmente (XP) einsammeln
+  for(var gi=gems.length-1;gi>=0;gi--){
+    var g=gems[gi],gd=Math.hypot(pl.x-g.x,pl.y-g.y);
+    if(gd<pl.magnet){
+      var ga=Math.atan2(pl.y-g.y,pl.x-g.x);
+      g.x+=Math.cos(ga)*280*dt;
+      g.y+=Math.sin(ga)*280*dt;
+    }
+    if(gd<pl.r+8){
+      xp+=g.v;
+      score+=g.v*2;
+      gems.splice(gi,1);
+      Core.tone(880,.04,'triangle',.03,1200);
+      if(xp>=nextXp){
+        xp-=nextXp;
+        lv++;
+        nextXp=Math.round(nextXp*1.35+4);
+        triggerLevelUp();
+        return;
+      }
+    }
+  }
+}
+
+function tx(s,x,y,size,col,al){
+  ctx.fillStyle=col;
+  ctx.font='bold '+size+'px Orbitron,"Trebuchet MS",Arial,sans-serif';
+  ctx.textAlign=al||'center';
+  ctx.fillText(s,x,y);
+}
+
+function drawEnemy(e){
+  ctx.save();
+  ctx.translate(e.x,e.y);
+  ctx.fillStyle=e.hitT>0?'#ffffff':e.col;
+  ctx.strokeStyle='#050818';
+  ctx.lineWidth=1.5;
+  if(e.shape==='sq'){
+    ctx.fillRect(-e.r,-e.r,e.r*2,e.r*2);
+  }else if(e.shape==='tri'){
+    ctx.beginPath();
+    ctx.moveTo(0,-e.r-2);ctx.lineTo(e.r+2,e.r+2);ctx.lineTo(-e.r-2,e.r+2);ctx.closePath();
+    ctx.fill();
+  }else{
+    ctx.beginPath();
+    for(var i=0;i<6;i++){
+      var a=i*1.0472;
+      if(i===0)ctx.moveTo(Math.cos(a)*e.r,Math.sin(a)*e.r);
+      else ctx.lineTo(Math.cos(a)*e.r,Math.sin(a)*e.r);
+    }
+    ctx.closePath();ctx.fill();
+  }
+  ctx.restore();
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+
+  // Dezentes Cyber-Gitter im Hintergrund
+  ctx.strokeStyle='rgba(59,76,255,0.12)';
+  ctx.lineWidth=1;
+  for(var gx=0;gx<=W;gx+=40){ctx.beginPath();ctx.moveTo(gx,28);ctx.lineTo(gx,H-24);ctx.stroke();}
+  for(var gy=40;gy<H-24;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
+
+  // XP-Kristalle
+  gems.forEach(function(g){
+    ctx.fillStyle='#3dff6a';
+    ctx.beginPath();
+    ctx.moveTo(g.x,g.y-5);ctx.lineTo(g.x+4,g.y);ctx.lineTo(g.x,g.y+5);ctx.lineTo(g.x-4,g.y);
+    ctx.closePath();ctx.fill();
+  });
+
+  // Gegner
+  enemies.forEach(drawEnemy);
+
+  // Kettenblitze
+  bolts.forEach(function(b){
+    ctx.strokeStyle='#ff4dff';
+    ctx.lineWidth=2.5;
+    ctx.beginPath();
+    ctx.moveTo(b.x1,b.y1);
+    ctx.lineTo((b.x1+b.x2)/2+(Math.random()-0.5)*18,(b.y1+b.y2)/2+(Math.random()-0.5)*18);
+    ctx.lineTo(b.x2,b.y2);
+    ctx.stroke();
+  });
+
+  // Projektile
+  ctx.fillStyle='#3db8ff';
+  bullets.forEach(function(b){
+    ctx.beginPath();ctx.arc(b.x,b.y,3.5,0,6.283);ctx.fill();
+  });
+
+  // Firewall-Orbs
+  if(wpn.orb>0&&st!=='ready'){
+    for(var o=0;o<wpn.orb;o++){
+      var a=wpn.orbAng+(o*6.28318/wpn.orb);
+      var ox=pl.x+Math.cos(a)*46,oy=pl.y+Math.sin(a)*46;
+      ctx.fillStyle='#2fd6c2';
+      ctx.beginPath();ctx.arc(ox,oy,6,0,6.283);ctx.fill();
+      ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+    }
+  }
+
+  // Spieler-Kern
+  if(st!=='ready'){
+    if(!(pl.hurt>0&&Math.floor(pl.hurt*16)%2)){
+      ctx.fillStyle='#2fd6c2';
+      ctx.beginPath();ctx.arc(pl.x,pl.y,pl.r,0,6.283);ctx.fill();
+      ctx.strokeStyle='#ffffff';ctx.lineWidth=2;ctx.stroke();
+    }
+    // HP-Balken direkt unter dem Spieler
+    var bw=28,bh=4;
+    ctx.fillStyle='rgba(255,255,255,0.2)';
+    ctx.fillRect(pl.x-bw/2,pl.y+16,bw,bh);
+    ctx.fillStyle=pl.hp>35?'#3dff6a':'#ff4d4d';
+    ctx.fillRect(pl.x-bw/2,pl.y+16,bw*(pl.hp/pl.maxHp),bh);
+  }
+
+  // Partikel
+  particles.forEach(function(p){
+    ctx.globalAlpha=Math.max(0,p.t*2);
+    ctx.fillStyle=p.c;
+    ctx.fillRect(p.x-1.5,p.y-1.5,3,3);
+  });
+  ctx.globalAlpha=1;
+
+  // Touch-Joystick-Feedback
+  if(joy.active&&st==='play'){
+    ctx.strokeStyle='rgba(47,214,194,0.45)';
+    ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(joy.sx,joy.sy,28,0,6.283);ctx.stroke();
+    ctx.fillStyle='rgba(47,214,194,0.65)';
+    ctx.beginPath();ctx.arc(joy.cx,joy.cy,10,0,6.283);ctx.fill();
+  }
+
+  // Top-HUD & XP-Leiste
+  ctx.fillStyle='rgba(5,8,24,0.85)';
+  ctx.fillRect(0,0,W,30);
+  var sec=Math.floor(time),mm=String(Math.floor(sec/60)).padStart(2,'0'),ss=String(sec%60).padStart(2,'0');
+  tx('PUNKTE '+score,12,20,13,'#3dff6a','left');
+  tx(mm+':'+ss,W/2,20,14,'#ffffff','center');
+  tx('LV '+lv,W-12,20,13,'#2fd6c2','right');
+
+  // XP-Fortschrittsbalken am unteren Rand
+  ctx.fillStyle='#0a102e';
+  ctx.fillRect(0,H-20,W,20);
+  ctx.fillStyle='#3b4cff';
+  ctx.fillRect(0,H-20,W*(xp/nextXp),20);
+  tx('XP '+xp+' / '+nextXp+'   |   REKORD '+hi,W/2,H-6,11,'#dfe6ff','center');
+
+  // Startscreen
+  if(st==='ready'){
+    ctx.fillStyle='rgba(5,8,24,.82)';ctx.fillRect(0,0,W,H);
+    tx('KERNEL PANIC',W/2,190,34,'#2fd6c2');
+    tx('Überlebe die Malware-Wellen.',W/2,235,14,'#dfe6ff');
+    tx('Waffen feuern automatisch.',W/2,265,13,'#8a97d6');
+    tx('WASD / Pfeiltasten oder Touch-Joystick',W/2,290,13,'#8a97d6');
+    tx('Sammle grüne Daten-Kristalle für Upgrades.',W/2,330,13,'#3dff6a');
+    tx('Tippen oder Leertaste zum Start',W/2,410,16,'#3dff6a');
+  }
+
+  // Level-Up Auswahl (3 Karten)
+  if(st==='levelup'){
+    ctx.fillStyle='rgba(5,8,24,.86)';ctx.fillRect(0,0,W,H);
+    tx('SYSTEM UPGRADE (LEVEL '+lv+')',W/2,120,22,'#2fd6c2');
+    tx('Wähle eine Erweiterung (Taste 1-3 oder Tippen)',W/2,150,12,'#8a97d6');
+    for(var c=0;c<choices.length;c++){
+      var u=choices[c],cy=185+c*115;
+      ctx.fillStyle='#0b1130';
+      ctx.fillRect(42,cy,W-84,92);
+      ctx.strokeStyle=u.col;
+      ctx.lineWidth=2;
+      ctx.strokeRect(42,cy,W-84,92);
+      tx('['+(c+1)+'] '+u.name,W/2,cy+36,16,u.col,'center');
+      tx(u.desc,W/2,cy+64,13,'#dfe6ff','center');
+    }
+  }
+
+  // Game Over
+  if(st==='over'){
+    ctx.fillStyle='rgba(5,8,24,.84)';ctx.fillRect(0,0,W,H);
+    tx('SYSTEM CRASH',W/2,210,36,'#ff4d4d');
+    tx('Überlebt: '+mm+':'+ss+' (Level '+lv+')',W/2,260,16,'#dfe6ff');
+    tx('Punkte: '+score,W/2,295,20,'#ffffff');
+    tx(score>0&&score>=hi?'Neuer Rekord!':'Rekord: '+hi,W/2,332,16,'#3dff6a');
+    tx('Tippen oder Leertaste für Neustart',W/2,400,14,'#dfe6ff');
+  }
+}
+
+function onKey(e,d){
+  var k=e.key;
+  if(k==='ArrowLeft'||k==='a'||k==='A'){keys.l=d?1:0;e.preventDefault();}
+  else if(k==='ArrowRight'||k==='d'||k==='D'){keys.r=d?1:0;e.preventDefault();}
+  else if(k==='ArrowUp'||k==='w'||k==='W'){keys.u=d?1:0;e.preventDefault();}
+  else if(k==='ArrowDown'||k==='s'||k==='S'){keys.d=d?1:0;e.preventDefault();}
+  else if(d&&st==='levelup'&&(k==='1'||k==='2'||k==='3')){pickUpgrade(parseInt(k,10)-1);}
+  else if(d&&(k===' '||k==='Enter')&&(st==='ready'||st==='over')){e.preventDefault();start();}
+}
+addEventListener('keydown',function(e){onKey(e,true);});
+addEventListener('keyup',function(e){onKey(e,false);});
+
+function pos(e){
+  var r=cv.getBoundingClientRect();
+  return {x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H};
+}
+
+cv.addEventListener('pointerdown',function(e){
+  var p=pos(e);
+  if(st==='ready'||st==='over'){start();return;}
+  if(st==='levelup'){
+    for(var c=0;c<choices.length;c++){
+      var cy=185+c*115;
+      if(p.x>=42&&p.x<=W-42&&p.y>=cy&&p.y<=cy+92){pickUpgrade(c);return;}
+    }
+    return;
+  }
+  joy={active:true,sx:p.x,sy:p.y,cx:p.x,cy:p.y};
+  try{cv.setPointerCapture(e.pointerId);}catch(_){}
+});
+cv.addEventListener('pointermove',function(e){
+  if(joy.active){var p=pos(e);joy.cx=p.x;joy.cy=p.y;}
+});
+function endJoy(){joy.active=false;}
+cv.addEventListener('pointerup',endJoy);
+cv.addEventListener('pointercancel',endJoy);
+
+var last=performance.now();
+function loop(t){
+  var dt=Math.min((t-last)/1000,.05);last=t;
+  update(dt);draw();requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);cv.focus();
+})();
+</script>
+</body>
+</html>
