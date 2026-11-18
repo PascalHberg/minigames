@@ -15,5 +15,13 @@ window.GAMES = [
     "hiKey": "spaceinvaders_hi",
     "color": "#3dff6a",
     "order": 2
+  },
+  {
+    "id": "memory",
+    "title": "MEMORY",
+    "desc": "Finde alle passenden Kartenpaare in möglichst wenigen Zügen.",
+    "hiKey": "memory_hi",
+    "color": "#3b4cff",
+    "order": 4
   }
 ];
