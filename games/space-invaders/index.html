@@ -30,10 +30,10 @@ var COL=['#ff4d4d','#ffb020','#f5f06a','#3ddc6a','#3db8ff'],PTS=[30,20,20,10,10]
 var IC={D:'#3db8ff',L:'#ff4dff',S:'#ffd84d',T:'#2fd6c2'};
 var st='ready',score=0,hi=Core.getHi(KEY),lives=3,wave=1,pl={x:W/2,y:H-50},pbs=[],inv=[],ib=[],pa=[],ufo=null;
 var items=[],bombs=[],ex=[],tr=[],tbs=[],dblLv=0,burstCd=0,laser=0,shield=0,itemT=16,AC=null;
-var dir=1,stepT=0,frame=0,stepN=0,fireT=1,ufoT=10,hurt=0,cornerT=0,keys={l:0,r:0},target=null,firing=false;
+var dir=1,stepT=0,frame=0,stepN=0,fireT=1,ufoT=10,hurt=0,keys={l:0,r:0},target=null,firing=false;
 
 function build(){inv=[];for(var r=0;r<5;r++)for(var c=0;c<8;c++)inv.push({x:50+c*48,y:80+r*36+Math.min(wave-1,5)*12,r:r});dir=1;stepT=.5;ib=[];bombs=[];pbs=[];tbs=[];}
-function start(){score=0;lives=3;wave=1;hurt=0;cornerT=0;ufo=null;pl.x=W/2;pa=[];items=[];ex=[];tr=[];tbs=[];dblLv=0;burstCd=0;laser=0;shield=0;itemT=16;ufoT=10;build();st='play';}
+function start(){score=0;lives=3;wave=1;hurt=0;ufo=null;pl.x=W/2;pa=[];items=[];ex=[];tr=[];tbs=[];dblLv=0;burstCd=0;laser=0;shield=0;itemT=16;ufoT=10;build();st='play';}
 function over(){st='over';if(score>hi){hi=score;Core.setHi(KEY,hi);}Core.tone(120,.7,'sawtooth',.14,30);}
 function boom(x,y,c){for(var i=0;i<10;i++){var a=Math.random()*6.283,s=40+Math.random()*120;pa.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,t:.5,c:c});}}
 
@@ -69,15 +69,8 @@ function hit(){
 function drop(x,y){var t='DLST'[Math.floor(Math.random()*4)];items.push({x:x,y:y,t:t});}
 function killInv(k){var v=inv[k];inv.splice(k,1);score+=PTS[v.r];boom(v.x+16,v.y+12,COL[v.r]);Core.tone(220,.14,'sawtooth',.07,60);if(Math.random()<.04)drop(v.x+16,v.y+12);}
 function killUfo(){score+=[50,100,150,300][Math.floor(Math.random()*4)];boom(ufo.x,45,'#ff4d4d');Core.tone(700,.4,'triangle',.1,200);drop(ufo.x,50);ufo=null;}
-function explode(m){
-  var b=bombs.splice(m,1)[0];
-  var rad=b.big?120:60;
-  ex.push({x:b.x,y:b.y,t:.45,big:b.big});
-  boom(b.x,b.y,b.big?'#ff4d4d':'#ffb020');
-  Core.tone(b.big?65:90,.55,'sawtooth',.16,25);
-  tr.slice().forEach(function(t){if(Math.hypot(b.x-t.x,b.y-t.y)<rad)dmgT(t);});
-  if(st==='play'&&hurt<=0&&Math.hypot(b.x-pl.x,b.y-pl.y)<rad)hit();
-}
+function explode(m){var b=bombs.splice(m,1)[0];ex.push({x:b.x,y:b.y,t:.45});boom(b.x,b.y,'#ffb020');Core.tone(90,.45,'sawtooth',.14,30);tr.slice().forEach(function(t){if(Math.hypot(b.x-t.x,b.y-t.y)<60)dmgT(t);});
+  if(st==='play'&&hurt<=0&&Math.hypot(b.x-pl.x,b.y-pl.y)<60)hit();}
 function collect(t){
   if(t==='D'){dblLv=Math.min(3,dblLv+1);}
   else if(t==='L'){laser=3;pbs=[];}
@@ -106,19 +99,6 @@ function update(dt){
   if(target!==null)pl.x+=Math.max(-m*1.5,Math.min(m*1.5,target-pl.x));else pl.x+=(keys.r-keys.l)*m;
   pl.x=Math.max(24,Math.min(W-24,pl.x));
   hurt-=dt;
-
-  // Anti-Corner-Camping: > 5s in der Ecke wirft Mega-Bombe ab
-  if(pl.x<=60||pl.x>=W-60){
-    cornerT+=dt;
-    if(cornerT>=5){
-      cornerT=0;
-      bombs.push({x:pl.x,y:20,big:true});
-      Core.tone(240,.25,'sawtooth',.09,90);
-    }
-  }else{
-    cornerT=0;
-  }
-
   if(burstCd>0)burstCd-=dt;
   if(firing)shoot();
   itemT-=dt;if(itemT<=0){drop(20+Math.random()*(W-40),30);itemT=18+Math.random()*12;}
@@ -129,7 +109,7 @@ function update(dt){
     for(var k=inv.length-1;k>=0;k--){var w=inv[k];if(w.x+33>pl.x-9&&w.x<pl.x+9)killInv(k);}
     if(ufo&&Math.abs(ufo.x-pl.x)<26)killUfo();
     ib=ib.filter(function(o){return Math.abs(o.x-pl.x)>10;});
-    for(var z=bombs.length-1;z>=0;z--)if(!bombs[z].big&&Math.abs(bombs[z].x-pl.x)<12)explode(z);
+    for(var z=bombs.length-1;z>=0;z--)if(Math.abs(bombs[z].x-pl.x)<12)explode(z);
     if(laser<0)laser=0;}
   for(var s=pbs.length-1;s>=0;s--){
     var b=pbs[s];
@@ -146,7 +126,7 @@ function update(dt){
     var gone=b.y<-10||b.y>H+10||b.x<-10||b.x>W+10;
     if(!gone)for(var j=0;j<inv.length;j++){var v=inv[j];if(b.x>v.x&&b.x<v.x+33&&b.y>v.y&&b.y<v.y+24){killInv(j);gone=true;break;}}
     if(!gone&&ufo&&Math.abs(b.x-ufo.x)<20&&b.y>34&&b.y<56){killUfo();gone=true;}
-    if(!gone)for(var d=0;d<bombs.length;d++){var bo=bombs[d];if(!bo.big&&Math.abs(b.x-bo.x)<10&&Math.abs(b.y-bo.y)<14){score+=25;explode(d);gone=true;break;}}
+    if(!gone)for(var d=0;d<bombs.length;d++){var bo=bombs[d];if(Math.abs(b.x-bo.x)<10&&Math.abs(b.y-bo.y)<14){score+=25;explode(d);gone=true;break;}}
     if(gone)pbs.splice(s,1);
   }
   if(st!=='play')return;
@@ -188,16 +168,11 @@ function update(dt){
     if(o.y>H||o.x<-10||o.x>W+10)ib.splice(n,1);
   }
   if(st!=='play')return;
-  for(var q2=bombs.length-1;q2>=0;q2--){
-    var bm=bombs[q2];
-    bm.y+=(bm.big?230:170)*dt;
-    var bt=null;
-    if(!bm.big){tr.forEach(function(t){if(!bt&&Math.abs(bm.x-t.x)<24&&bm.y>=t.y-10)bt=t;});}
-    if(bt||bm.y>=pl.y-6){explode(q2);if(st!=='play')return;}
-  }
+  for(var q2=bombs.length-1;q2>=0;q2--){var bm=bombs[q2];bm.y+=170*dt;var bt=null;tr.forEach(function(t){if(!bt&&Math.abs(bm.x-t.x)<24&&bm.y>=t.y-10)bt=t;});
+    if(bt||bm.y>=pl.y-6){explode(q2);if(st!=='play')return;}}
   ufoT-=dt;if(!ufo&&ufoT<=0){var dd=Math.random()<.5?1:-1;ufo={x:dd>0?-30:W+30,d:dd,bd:[0,0]};ufoT=12+Math.random()*8;}
   if(ufo){ufo.x+=ufo.d*110*dt;
-    [W/2-50,W/2+50].forEach(function(bx,i){if(!ufo.bd[i]&&(ufo.d>0?ufo.x>=bx:ufo.x<=bx)){ufo.bd[i]=1;bombs.push({x:ufo.x,y:56,big:false});Core.tone(300,.15,'triangle',.05,120);}});
+    [W/2-50,W/2+50].forEach(function(bx,i){if(!ufo.bd[i]&&(ufo.d>0?ufo.x>=bx:ufo.x<=bx)){ufo.bd[i]=1;bombs.push({x:ufo.x,y:56});Core.tone(300,.15,'triangle',.05,120);}});
     if(ufo.x<-40||ufo.x>W+40)ufo=null;}
 }
 
@@ -240,19 +215,11 @@ function draw(){
     ctx.fillRect(-2,0,4,12);
     ctx.restore();
   });
-  bombs.forEach(function(o){
-    var r=o.big?11:6;
-    ctx.fillStyle=frame?'#ff4d4d':'#ffb020';
-    ctx.beginPath();ctx.arc(o.x,o.y,r,0,6.283);ctx.fill();
-    ctx.fillStyle='#fff';ctx.fillRect(o.x-1.5,o.y-r-5,3,6);
-  });
+  bombs.forEach(function(o){ctx.fillStyle=frame?'#ff4d4d':'#ffb020';ctx.beginPath();ctx.arc(o.x,o.y,6,0,6.283);ctx.fill();ctx.fillStyle='#fff';ctx.fillRect(o.x-1,o.y-10,2,5);});
   items.forEach(function(o){ctx.fillStyle=IC[o.t];ctx.fillRect(o.x-13,o.y-10,26,20);ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.strokeRect(o.x-13,o.y-10,26,20);tx(o.t,o.x,o.y+5,14,'#050818');});
-  ex.forEach(function(e){
-    var p=1-e.t/.45,r=(e.big?20:10)+(e.big?110:60)*p;
-    ctx.globalAlpha=Math.max(0,e.t/.45)*.85;
-    ctx.fillStyle=e.big?'#ff4d4d':'#ffb020';ctx.beginPath();ctx.arc(e.x,e.y,r,0,6.283);ctx.fill();
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(e.x,e.y,r*.45,0,6.283);ctx.fill();
-  });ctx.globalAlpha=1;
+  ex.forEach(function(e){var p=1-e.t/.45,r=10+60*p;ctx.globalAlpha=Math.max(0,e.t/.45)*.85;
+    ctx.fillStyle='#ffb020';ctx.beginPath();ctx.arc(e.x,e.y,r,0,6.283);ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(e.x,e.y,r*.45,0,6.283);ctx.fill();});ctx.globalAlpha=1;
   pa.forEach(function(q){ctx.globalAlpha=Math.max(0,q.t*2);ctx.fillStyle=q.c;ctx.fillRect(q.x,q.y,3,3);});ctx.globalAlpha=1;
   ctx.strokeStyle='#3b4cff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,H-24);ctx.lineTo(W,H-24);ctx.stroke();
   for(i=0;i<lives;i++){ctx.save();ctx.translate(26+i*30,H-12);ctx.scale(.55,.55);ship(0,0,'#3dff6a');ctx.restore();}
