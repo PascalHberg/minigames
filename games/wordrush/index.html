@@ -58,27 +58,25 @@ aside{width:125px;display:flex;flex-direction:column;gap:14px}
 <div id="stars"></div>
 <div class="layout">
  <main class="arena">
-  <div class="top"><span>WORDRUSH</span><strong id="timer">--</strong><span id="length">BEREIT</span></div>
+  <div class="top"><span>WORDRUSH</span><strong id="timer">30.0s</strong><span id="length">WORT 1/10</span></div>
   <canvas id="board" width="480" height="480" aria-label="Rotierendes Buchstabenrad"></canvas>
-  <div class="entry"><input id="guess" type="text" maxlength="18" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="WORT EINGEBEN" aria-label="Gesuchtes Wort"><button id="submit">OK</button></div>
+  <div class="entry"><input id="guess" type="text" maxlength="18" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="BUCHSTABEN AUSWÄHLEN" aria-label="Gesuchtes Wort"><button id="submit">OK</button></div>
   <div class="message" id="message" aria-live="polite"></div>
   <div class="overlay" id="overlay">
    <h1 id="overlayTitle">WORDRUSH</h1>
-   <p id="line1">Finde das versteckte Wort aus den Buchstaben im Ring.</p>
-   <p id="line2">Der Ring dreht sich – und das Tempo steigt.</p>
-   <p id="line3">Buchstaben anklicken oder das Wort eintippen.</p>
-   <p id="line4" class="accent">Hinweise kosten Punkte. Du hast drei Leben.</p>
+   <p id="line1">Finde zehn Wörter innerhalb von 30 Sekunden.</p>
+   <p id="line2">Nutze ausschließlich die angezeigten Buchstaben.</p>
+   <p id="line3">Jeder Buchstabe kann nur so oft verwendet werden, wie er im Wort vorkommt.</p>
+   <p id="line4" class="accent">Dein Rekord ist die benötigte Gesamtzeit. Je schneller, desto besser.</p>
    <button id="start">SPIEL STARTEN</button>
   </div>
  </main>
  <aside>
   <a class="back" href="../../index.html">← MENÜ</a>
-  <div class="stat"><p>PUNKTE</p><strong class="green" id="score">000</strong></div>
-  <div class="stat"><p>REKORD</p><strong id="best">000</strong></div>
-  <div class="stat"><p>LEBEN</p><div class="hearts" id="lives">♥♥♥</div></div>
-  <div class="stat"><p>RUNDE</p><strong id="round">0</strong></div>
-  <div class="stat"><p>TEMPO</p><strong id="speed">x1.0</strong></div>
-  <div class="actions"><button id="hint" disabled>HINWEIS −10</button><button id="skip" disabled>ÜBERSPRINGEN</button></div>
+  <div class="stat"><p>ZEIT</p><strong class="green" id="elapsed">0.0s</strong></div>
+  <div class="stat"><p>REKORD</p><strong id="best">--</strong></div>
+  <div class="stat"><p>WÖRTER</p><strong id="round">0/10</strong></div>
+  <div class="actions"><button id="skip" disabled>ÜBERSPRINGEN</button></div>
  </aside>
 </div>
 <script src="../../shared/core.js"></script>
@@ -88,40 +86,66 @@ aside{width:125px;display:flex;flex-direction:column;gap:14px}
 var KEY="wordrush_hi",W=480,H=480,cv=document.getElementById("board"),ctx=cv.getContext("2d");
 Core.stars(document.getElementById("stars"));
 var $=function(id){return document.getElementById(id);};
-var WORDS=("HAUS BAUM TISCH FENSTER COMPUTER NETZWERK SERVER TASTATUR BILDSCHIRM PROGRAMM ROUTER DATEN KAMPF TRAINING FAMILIE FREUNDE WASSER SONNE GARTEN MUSIK LAPTOP KABEL SPEICHER PYTHON FIREWALL PASSWORT ZUGRIFF RAKETE PLANET GALAXIE KOMET SCHATTEN KUGEL SCHEIBE FARBE SPIEL PUNKTE GEWINN MONITOR MAUS DRUCKER SWITCH ROUTING LINUX WINDOWS DOCKER PYTHON SCRIPT DATENBANK BACKUP CLOUD SICHERHEIT SCHLUESSEL PROZESSOR SPEICHERPLATZ FESTPLATTE NETZWERKKARTE INTERNET BROWSER TUNNEL PROXY SERVERraum".toUpperCase().replace("SERVERraum","SERVER").split(" "));
-var score=0,best=Core.getHi(KEY),lives=3,round=0,word="",pool=[],letters=[],angle=0,dir=1,rotation=.45,time=0,locked=true,playing=false,hintUsed=false,last=0,raf=0;
-function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
-function scramble(s){var a=s.split(""),v=s;for(var n=0;n<12&&v===s;n++)v=shuffle(a).join("");return v;}
+var WORDS="HAUS BAUM TISCH FENSTER COMPUTER NETZWERK SERVER TASTATUR BILDSCHIRM PROGRAMM ROUTER DATEN TRAINING FAMILIE FREUNDE WASSER SONNE GARTEN MUSIK LAPTOP KABEL SPEICHER PYTHON FIREWALL PASSWORT ZUGRIFF RAKETE PLANET GALAXIE KOMET SCHATTEN KUGEL SCHEIBE FARBE SPIEL PUNKTE GEWINN MONITOR MAUS DRUCKER SWITCH ROUTING LINUX WINDOWS DOCKER SCRIPT DATENBANK BACKUP CLOUD SICHERHEIT SCHLUESSEL PROZESSOR FESTPLATTE INTERNET BROWSER TUNNEL PROXY".split(" ");
+var best=Core.getHi(KEY),round=0,word="",pool=[],letters=[],angle=0,rotation=.45,timeLeft=30,elapsed=0,locked=true,playing=false,last=0,raf=0;
+function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t;}return a;}
 function say(s,c){$("message").textContent=s;$("message").className="message "+(c||"");}
-function hud(){$("score").textContent=String(score).padStart(3,"0");$("best").textContent=String(best).padStart(3,"0");$("lives").textContent="♥".repeat(lives)+"♡".repeat(3-lives);$("round").textContent=round;$("speed").textContent="x"+(rotation/.45).toFixed(1);}
-function ring(s){letters=s.split("");}
+function format(t){return t.toFixed(1)+"s";}
+function hud(){
+ $("best").textContent=best?format(best/10):"--";
+ $("round").textContent=round+"/10";
+ $("elapsed").textContent=format(elapsed);
+ $("timer").textContent=format(Math.max(0,timeLeft));
+}
 function next(){
- if(!pool.length)pool=shuffle(WORDS);
- word=pool.pop();round++;ring(scramble(word));time=13+word.length*3;hintUsed=false;locked=false;rotation=Math.min(.45+round*.055,1.5);dir=Math.random()<.5?-1:1;
- $("guess").value="";$("length").textContent=word.length+" BUCHSTABEN";$("hint").disabled=false;$("skip").disabled=false;$("submit").disabled=false;say("");hud();
+ if(round>=10){finish();return;}
+ word=pool.pop();round++;letters=shuffle(word.split(""));angle=0;locked=false;
+ $("guess").value="";$("length").textContent="WORT "+round+"/10";$("skip").disabled=false;$("submit").disabled=false;
+ say("");hud();
 }
 function start(){
- if(playing)return;score=0;lives=3;round=0;pool=shuffle(WORDS);playing=true;locked=true;$("overlay").classList.add("hide");next();last=performance.now();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop);
+ if(playing)return;
+ pool=shuffle(WORDS);round=0;timeLeft=30;elapsed=0;playing=true;locked=true;
+ $("overlay").classList.add("hide");next();last=performance.now();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop);
 }
 function show(title,a,b,c,d,button){
- playing=false;locked=true;$("overlayTitle").textContent=title;$("line1").textContent=a;$("line2").textContent=b;$("line3").textContent=c;$("line4").textContent=d;$("start").textContent=button;$("overlay").classList.remove("hide");$("timer").textContent="--";$("length").textContent="";$("hint").disabled=true;$("skip").disabled=true;$("submit").disabled=true;
+ playing=false;locked=true;$("overlayTitle").textContent=title;$("line1").textContent=a;$("line2").textContent=b;$("line3").textContent=c;$("line4").textContent=d;$("start").textContent=button;
+ $("overlay").classList.remove("hide");$("skip").disabled=true;$("submit").disabled=true;
 }
-function end(){
- if(score>best){best=score;Core.setHi(KEY,best);}
- hud();show("RUNDE BEENDET","Punkte: "+score,"Gelöste Wörter: "+(round-(3-lives)),"Rekord: "+best,"Starte eine neue Runde und knacke deinen Highscore.","NOCHMAL SPIELEN");
+function finish(){
+ var result=elapsed;
+ if(round===10&&timeLeft>0){
+  var tenths=Math.round(result*10);
+  if(!best||tenths<best){best=tenths;Core.setHi(KEY,best);}
+  hud();
+  show("GESCHAFFT!","Alle 10 Wörter gelöst.","Deine Zeit: "+format(result),"Rekord: "+format(best/10),"Je niedriger die Zeit, desto besser. Schaffst du es noch schneller?","NOCHMAL SPIELEN");
+ }else{
+  show("ZEIT ABGELAUFEN","Du hast "+(round-1)+" von 10 Wörtern geschafft.","Benötigte Zeit: 30,0 Sekunden","Rekord: "+(best?format(best/10):"Noch keiner"),"Versuche alle zehn Wörter innerhalb des festen Zeitlimits.","NOCHMAL SPIELEN");
+ }
 }
-function miss(reason){
- if(locked||!playing)return;locked=true;lives--;hud();$("hint").disabled=true;$("skip").disabled=true;$("submit").disabled=true;say(reason+" Lösung: "+word,"bad");
- setTimeout(function(){if(!playing)return;if(lives<=0)end();else next();},1500);
+function availableCounts(){var counts={};for(var i=0;i<letters.length;i++)counts[letters[i]]=(counts[letters[i]]||0)+1;return counts;}
+function cleanInput(){
+ var raw=$("guess").value.toLocaleUpperCase("de-DE").replace(/[^A-ZÄÖÜ]/g,""),available=availableCounts(),out="";
+ for(var i=0;i<raw.length;i++){var ch=raw[i];if(available[ch]>0){out+=ch;available[ch]--;}}
+ $("guess").value=out;
 }
 function submit(){
- if(locked||!playing)return;var g=$("guess").value.trim().toLocaleUpperCase("de-DE");if(!g)return;
- if(g===word){locked=true;var pts=Math.max(5,word.length*10+Math.ceil(time)*2-(hintUsed?10:0));score+=pts;if(score>best){best=score;Core.setHi(KEY,best);}hud();$("hint").disabled=true;$("skip").disabled=true;$("submit").disabled=true;say("RICHTIG! +"+pts+" PUNKTE","ok");Core.tone(660,.12,"triangle",.08,990);setTimeout(function(){if(playing)next();},850);}
- else{say("FALSCH – VERSUCH ES NOCH EINMAL","bad");cv.classList.remove("shake");Core.tone(180,.12,"square",.04);}
+ if(locked||!playing)return;
+ var g=$("guess").value.toLocaleUpperCase("de-DE");
+ if(g===word){
+  locked=true;$("skip").disabled=true;$("submit").disabled=true;say("RICHTIG: "+word,"ok");Core.tone(660,.12,"triangle",.08,990);
+  setTimeout(function(){if(playing)next();},350);
+ }else{say("FALSCH – BUCHSTABEN PRÜFEN","bad");Core.tone(180,.12,"square",.04);}
 }
-$("submit").addEventListener("click",submit);$("guess").addEventListener("keydown",function(e){if(e.key==="Enter")submit();});
-$("hint").addEventListener("click",function(){if(locked||hintUsed)return;hintUsed=true;score=Math.max(0,score-10);hud();$("hint").disabled=true;say("GESUCHTES WORT BEGINNT MIT "+word[0]);});
-$("skip").addEventListener("click",function(){miss("ÜBERSPRUNGEN.");});
+$("submit").addEventListener("click",submit);
+$("guess").addEventListener("input",cleanInput);
+$("guess").addEventListener("keydown",function(e){if(e.key==="Enter")submit();});
+$("skip").addEventListener("click",function(){
+ if(locked||!playing)return;
+ locked=true;$("skip").disabled=true;$("submit").disabled=true;
+ say("ÜBERSPRUNGEN – DAS WORT WAR: "+word,"bad");
+ setTimeout(function(){if(playing)next();},1100);
+});
 $("start").addEventListener("click",start);
 function draw(){
  ctx.clearRect(0,0,W,H);
@@ -136,17 +160,24 @@ function draw(){
  letters.forEach(function(ch,i){var a=angle+i*Math.PI*2/n-Math.PI/2,x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;
   ctx.save();ctx.shadowColor="#3b4cff";ctx.shadowBlur=15;ctx.fillStyle="#0b1540";ctx.strokeStyle="#5267ff";ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,25,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.shadowBlur=0;ctx.fillStyle="#fff";ctx.font="bold 25px Orbitron,'Trebuchet MS',sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(ch,x,y+1);ctx.restore();
  });
- ctx.save();ctx.textAlign="center";ctx.textBaseline="middle";ctx.shadowColor="#3b4cff";ctx.shadowBlur=15;ctx.fillStyle="#3dff6a";ctx.font="bold 19px Orbitron,'Trebuchet MS',sans-serif";ctx.fillText(playing?"WORT GESUCHT":"WORDRUSH",cx,cy-10);ctx.shadowBlur=0;ctx.fillStyle="#8a97d6";ctx.font="12px Orbitron,'Trebuchet MS',sans-serif";ctx.fillText(playing?word.length+" BUCHSTABEN":"BUCHSTABEN ENTSCHLÜSSELN",cx,cy+17);ctx.restore();
+ ctx.save();ctx.textAlign="center";ctx.textBaseline="middle";ctx.shadowColor="#3b4cff";ctx.shadowBlur=15;ctx.fillStyle="#3dff6a";ctx.font="bold 19px Orbitron,'Trebuchet MS',sans-serif";ctx.fillText(playing?"WORT "+round+"/10":"WORDRUSH",cx,cy-10);ctx.shadowBlur=0;ctx.fillStyle="#8a97d6";ctx.font="12px Orbitron,'Trebuchet MS',sans-serif";ctx.fillText(playing?word.length+" BUCHSTABEN":"10 WÖRTER IN 30 SEKUNDEN",cx,cy+17);ctx.restore();
 }
 function pick(x,y){
- if(!playing||locked)return;var rect=cv.getBoundingClientRect(),px=(x-rect.left)/rect.width*W,py=(y-rect.top)/rect.height*H,cx=W/2,cy=H/2,r=160,n=letters.length;
- if(!n)return;var a=Math.atan2(py-cy,px-cx);var idx=Math.round((a+Math.PI/2-angle)/(Math.PI*2/n));idx=((idx%n)+n)%n;$("guess").value+=letters[idx];$("guess").focus();
+ if(!playing||locked)return;
+ var rect=cv.getBoundingClientRect(),px=(x-rect.left)/rect.width*W,py=(y-rect.top)/rect.height*H,cx=W/2,cy=H/2,r=160,n=letters.length;
+ if(!n)return;var a=Math.atan2(py-cy,px-cx),idx=Math.round((a+Math.PI/2-angle)/(Math.PI*2/n));idx=((idx%n)+n)%n;
+ var counts=availableCounts(),used=$("guess").value.split(""),usedCounts={};
+ used.forEach(function(ch){usedCounts[ch]=(usedCounts[ch]||0)+1;});
+ var ch=letters[idx];if((usedCounts[ch]||0)>=counts[ch])return;
+ $("guess").value+=ch;$("guess").focus();
 }
 cv.addEventListener("pointerdown",function(e){pick(e.clientX,e.clientY);});
 function loop(now){
  var dt=Math.min((now-last)/1000,.05);last=now;
- if(playing&&!locked){time-=dt;if(time<=0){time=0;$("timer").textContent="00";miss("ZEIT ABGELAUFEN.");}else $("timer").textContent=String(Math.ceil(time)).padStart(2,"0");}
- if(playing){angle+=dir*rotation*dt;hud();}
+ if(playing){timeLeft=Math.max(0,timeLeft-dt);elapsed=Math.min(30,elapsed+dt);$("timer").textContent=format(timeLeft);$("elapsed").textContent=format(elapsed);
+  if(timeLeft<=0){finish();return;}
+  angle+=rotation*dt;
+ }
  draw();if(playing)raf=requestAnimationFrame(loop);
 }
 function idle(){draw();if(!playing)raf=requestAnimationFrame(idle);}
