@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WORDRUSH</title>
+<link rel="stylesheet" href="../../shared/style.css">
+<style>
+:root{--blue:#3b4cff;--green:#3dff6a;--red:#ff4d4d;--cyan:#3dd8ff;--mut:#8a97d6;--txt:#dfe6ff}
+*{box-sizing:border-box}
+html,body{min-height:100%;margin:0}
+body{min-height:100svh;background:#050818;color:var(--txt);font-family:"Orbitron","Trebuchet MS",Arial,sans-serif;display:flex;align-items:center;justify-content:center;padding:14px;user-select:none}
+#stars{position:fixed;inset:0;pointer-events:none}
+.layout{position:relative;display:flex;align-items:center;gap:18px;width:min(100%,650px)}
+.arena{width:min(480px,calc(100vw - 150px));min-width:0;position:relative;padding:14px;border:3px solid #fff;background:linear-gradient(#ffffff0d 1px,transparent 1px) 0 0/38px 38px,linear-gradient(90deg,#ffffff0d 1px,transparent 1px) 0 0/38px 38px,#080d29;box-shadow:0 0 22px #3b4cff99,inset 0 0 30px #0008}
+.arena:before,.arena:after{content:"";position:absolute;top:0;bottom:0;width:5px;background:var(--blue);box-shadow:0 0 12px var(--blue)}
+.arena:before{left:0}.arena:after{right:0}
+.top{display:flex;justify-content:space-between;align-items:center;margin:0 4px 8px;font-size:12px;color:var(--mut)}
+.top strong{color:var(--green);font-size:16px}
+canvas{display:block;width:100%;height:auto;aspect-ratio:1;background:#080d29}
+.entry{display:flex;gap:8px;margin-top:10px}
+input{width:100%;min-width:0;background:#020617;color:#fff;border:1px solid var(--blue);border-radius:5px;padding:12px;font:700 19px "Orbitron","Trebuchet MS",sans-serif;text-align:center;letter-spacing:.16em;text-transform:uppercase;outline:none}
+input:focus{box-shadow:0 0 10px #3b4cff88}
+button,.back{border:1px solid var(--blue);background:#080d29;color:var(--mut);border-radius:5px;padding:10px 12px;font:700 12px "Orbitron","Trebuchet MS",sans-serif;cursor:pointer;text-decoration:none;text-align:center}
+button:hover:not(:disabled),.back:hover{color:#fff;box-shadow:0 0 10px #3b4cff88}
+button:disabled{opacity:.35;cursor:default}
+#submit{color:var(--green);border-color:var(--green)}
+.message{height:25px;margin:8px 2px 0;text-align:center;font-size:12px;font-weight:bold;color:var(--cyan)}
+.message.ok{color:var(--green)}.message.bad{color:var(--red)}
+aside{width:125px;display:flex;flex-direction:column;gap:14px}
+.back{display:block}
+.stat p{margin:0 0 5px;color:var(--mut);font-size:11px}
+.stat strong{font-size:22px;color:var(--txt)}
+.stat .green{color:var(--green)}
+.hearts{color:var(--red);letter-spacing:3px;font-size:20px}
+.actions{display:flex;flex-direction:column;gap:8px}
+#hint{color:#ffb020;border-color:#ffb020}
+#skip{color:var(--red);border-color:var(--red)}
+.overlay{position:absolute;inset:0;z-index:4;background:#050818eF;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;gap:12px}
+.overlay.hide{display:none}
+.overlay h1{font-size:clamp(28px,7vw,42px);margin:0;color:#fff;text-shadow:0 0 16px var(--blue);letter-spacing:2px}
+.overlay p{margin:0;font-size:13px;line-height:1.7;color:var(--mut)}
+.overlay .accent{color:var(--green)}
+.overlay button{font-size:14px;color:var(--green);border-color:var(--green);padding:12px 18px}
+@media(max-width:620px){
+ body{align-items:flex-start;padding:10px}
+ .layout{flex-direction:column;gap:10px;width:min(100%,480px)}
+ .arena{width:100%;padding:10px}
+ aside{width:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+ aside .back{grid-column:1/-1}
+ .stat p{font-size:10px}.stat strong{font-size:18px}
+ .actions{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr}
+}
+:focus-visible{outline:2px solid #fff;outline-offset:3px}
+</style>
+</head>
+<body>
+<div id="stars"></div>
+<div class="layout">
+ <main class="arena">
+  <div class="top"><span>WORDRUSH</span><strong id="timer">--</strong><span id="length">BEREIT</span></div>
+  <canvas id="board" width="480" height="480" aria-label="Rotierendes Buchstabenrad"></canvas>
+  <div class="entry"><input id="guess" type="text" maxlength="18" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="WORT EINGEBEN" aria-label="Gesuchtes Wort"><button id="submit">OK</button></div>
+  <div class="message" id="message" aria-live="polite"></div>
+  <div class="overlay" id="overlay">
+   <h1 id="overlayTitle">WORDRUSH</h1>
+   <p id="line1">Finde das versteckte Wort aus den Buchstaben im Ring.</p>
+   <p id="line2">Der Ring dreht sich – und das Tempo steigt.</p>
+   <p id="line3">Buchstaben anklicken oder das Wort eintippen.</p>
+   <p id="line4" class="accent">Hinweise kosten Punkte. Du hast drei Leben.</p>
+   <button id="start">SPIEL STARTEN</button>
+  </div>
+ </main>
+ <aside>
+  <a class="back" href="../../index.html">← MENÜ</a>
+  <div class="stat"><p>PUNKTE</p><strong class="green" id="score">000</strong></div>
+  <div class="stat"><p>REKORD</p><strong id="best">000</strong></div>
+  <div class="stat"><p>LEBEN</p><div class="hearts" id="lives">♥♥♥</div></div>
+  <div class="stat"><p>RUNDE</p><strong id="round">0</strong></div>
+  <div class="stat"><p>TEMPO</p><strong id="speed">x1.0</strong></div>
+  <div class="actions"><button id="hint" disabled>HINWEIS −10</button><button id="skip" disabled>ÜBERSPRINGEN</button></div>
+ </aside>
+</div>
+<script src="../../shared/core.js"></script>
+<script>
+(function(){
+"use strict";
+var KEY="wordrush_hi",W=480,H=480,cv=document.getElementById("board"),ctx=cv.getContext("2d");
+Core.stars(document.getElementById("stars"));
+var $=function(id){return document.getElementById(id);};
+var WORDS=("HAUS BAUM TISCH FENSTER COMPUTER NETZWERK SERVER TASTATUR BILDSCHIRM PROGRAMM ROUTER DATEN KAMPF TRAINING FAMILIE FREUNDE WASSER SONNE GARTEN MUSIK LAPTOP KABEL SPEICHER PYTHON FIREWALL PASSWORT ZUGRIFF RAKETE PLANET GALAXIE KOMET SCHATTEN KUGEL SCHEIBE FARBE SPIEL PUNKTE GEWINN MONITOR MAUS DRUCKER SWITCH ROUTING LINUX WINDOWS DOCKER PYTHON SCRIPT DATENBANK BACKUP CLOUD SICHERHEIT SCHLUESSEL PROZESSOR SPEICHERPLATZ FESTPLATTE NETZWERKKARTE INTERNET BROWSER TUNNEL PROXY SERVERraum".toUpperCase().replace("SERVERraum","SERVER").split(" "));
+var score=0,best=Core.getHi(KEY),lives=3,round=0,word="",pool=[],letters=[],angle=0,dir=1,rotation=.45,time=0,locked=true,playing=false,hintUsed=false,last=0,raf=0;
+function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function scramble(s){var a=s.split(""),v=s;for(var n=0;n<12&&v===s;n++)v=shuffle(a).join("");return v;}
+function say(s,c){$("message").textContent=s;$("message").className="message "+(c||"");}
+function hud(){$("score").textContent=String(score).padStart(3,"0");$("best").textContent=String(best).padStart(3,"0");$("lives").textContent="♥".repeat(lives)+"♡".repeat(3-lives);$("round").textContent=round;$("speed").textContent="x"+(rotation/.45).toFixed(1);}
+function ring(s){letters=s.split("");}
+function next(){
+ if(!pool.length)pool=shuffle(WORDS);
+ word=pool.pop();round++;ring(scramble(word));time=13+word.length*3;hintUsed=false;locked=false;rotation=Math.min(.45+round*.055,1.5);dir=Math.random()<.5?-1:1;
+ $("guess").value="";$("length").textContent=word.length+" BUCHSTABEN";$("hint").disabled=false;$("skip").disabled=false;$("submit").disabled=false;say("");hud();
+}
+function start(){
+ if(playing)return;score=0;lives=3;round=0;pool=shuffle(WORDS);playing=true;locked=true;$("overlay").classList.add("hide");next();last=performance.now();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop);
+}
+function show(title,a,b,c,d,button){
+ playing=false;locked=true;$("overlayTitle").textContent=title;$("line1").textContent=a;$("line2").textContent=b;$("line3").textContent=c;$("line4").textContent=d;$("start").textContent=button;$("overlay").classList.remove("hide");$("timer").textContent="--";$("length").textContent="";$("hint").disabled=true;$("skip").disabled=true;$("submit").disabled=true;
+}
+function end(){
+ if(score>best){best=score;Core.setHi(KEY,best);}
+ hud();show("RUNDE BEENDET","Punkte: "+score,"Gelöste Wörter: "+(round-(3-lives)),"Rekord: "+best,"Starte eine neue Runde und knacke deinen Highscore.","NOCHMAL SPIELEN");
+}
+function miss(reason){
+ if(locked||!playing)return;locked=true;lives--;hud();$("hint").disabled=true;$("skip").disabled=true;$("submit").disabled=true;say(reason+" Lösung: "+word,"bad");
+ setTimeout(function(){if(!playing)return;if(lives<=0)end();else next();},1500);
+}
+function submit(){
+ if(locked||!playing)return;var g=$("guess").value.trim().toLocaleUpperCase("de-DE");if(!g)return;
+ if(g===word){locked=true;var pts=Math.max(5,word.length*10+Math.ceil(time)*2-(hintUsed?10:0));score+=pts;if(score>best){best=score;Core.setHi(KEY,best);}hud();$("hint").disabled=true;$("skip").disabled=true;$("submit").disabled=true;say("RICHTIG! +"+pts+" PUNKTE","ok");Core.tone(660,.12,"triangle",.08,990);setTimeout(function(){if(playing)next();},850);}
+ else{say("FALSCH – VERSUCH ES NOCH EINMAL","bad");cv.classList.remove("shake");Core.tone(180,.12,"square",.04);}
+}
+$("submit").addEventListener("click",submit);$("guess").addEventListener("keydown",function(e){if(e.key==="Enter")submit();});
+$("hint").addEventListener("click",function(){if(locked||hintUsed)return;hintUsed=true;score=Math.max(0,score-10);hud();$("hint").disabled=true;say("GESUCHTES WORT BEGINNT MIT "+word[0]);});
+$("skip").addEventListener("click",function(){miss("ÜBERSPRUNGEN.");});
+$("start").addEventListener("click",start);
+function draw(){
+ ctx.clearRect(0,0,W,H);
+ ctx.save();ctx.strokeStyle="rgba(207,216,255,.12)";ctx.lineWidth=1;
+ for(var x=0;x<=W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+ for(var y=0;y<=H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+ ctx.restore();
+ var cx=W/2,cy=H/2,r=160;
+ ctx.save();ctx.shadowColor="#3b4cff";ctx.shadowBlur=22;ctx.strokeStyle="rgba(59,76,255,.65)";ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,r+24,0,Math.PI*2);ctx.stroke();ctx.restore();
+ ctx.save();ctx.strokeStyle="rgba(61,216,255,.28)";ctx.setLineDash([4,8]);ctx.beginPath();ctx.arc(cx,cy,r-28,0,Math.PI*2);ctx.stroke();ctx.restore();
+ var n=Math.max(letters.length,1);
+ letters.forEach(function(ch,i){var a=angle+i*Math.PI*2/n-Math.PI/2,x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;
+  ctx.save();ctx.shadowColor="#3b4cff";ctx.shadowBlur=15;ctx.fillStyle="#0b1540";ctx.strokeStyle="#5267ff";ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,25,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.shadowBlur=0;ctx.fillStyle="#fff";ctx.font="bold 25px Orbitron,'Trebuchet MS',sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(ch,x,y+1);ctx.restore();
+ });
+ ctx.save();ctx.textAlign="center";ctx.textBaseline="middle";ctx.shadowColor="#3b4cff";ctx.shadowBlur=15;ctx.fillStyle="#3dff6a";ctx.font="bold 19px Orbitron,'Trebuchet MS',sans-serif";ctx.fillText(playing?"WORT GESUCHT":"WORDRUSH",cx,cy-10);ctx.shadowBlur=0;ctx.fillStyle="#8a97d6";ctx.font="12px Orbitron,'Trebuchet MS',sans-serif";ctx.fillText(playing?word.length+" BUCHSTABEN":"BUCHSTABEN ENTSCHLÜSSELN",cx,cy+17);ctx.restore();
+}
+function pick(x,y){
+ if(!playing||locked)return;var rect=cv.getBoundingClientRect(),px=(x-rect.left)/rect.width*W,py=(y-rect.top)/rect.height*H,cx=W/2,cy=H/2,r=160,n=letters.length;
+ if(!n)return;var a=Math.atan2(py-cy,px-cx);var idx=Math.round((a+Math.PI/2-angle)/(Math.PI*2/n));idx=((idx%n)+n)%n;$("guess").value+=letters[idx];$("guess").focus();
+}
+cv.addEventListener("pointerdown",function(e){pick(e.clientX,e.clientY);});
+function loop(now){
+ var dt=Math.min((now-last)/1000,.05);last=now;
+ if(playing&&!locked){time-=dt;if(time<=0){time=0;$("timer").textContent="00";miss("ZEIT ABGELAUFEN.");}else $("timer").textContent=String(Math.ceil(time)).padStart(2,"0");}
+ if(playing){angle+=dir*rotation*dt;hud();}
+ draw();if(playing)raf=requestAnimationFrame(loop);
+}
+function idle(){draw();if(!playing)raf=requestAnimationFrame(idle);}
+hud();draw();raf=requestAnimationFrame(idle);
+})();
+</script>
+</body>
+</html>
