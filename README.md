@@ -167,3 +167,5 @@ Das Repository ist ein fortlaufendes Lern- und Entwicklungsprojekt. Neue Spiele 
 ## Lizenz
 
 Für dieses Repository ist derzeit keine ausdrückliche Open-Source-Lizenzdatei hinterlegt. Soweit nicht anders gekennzeichnet, bleibt die Nutzung daher auf die Rechte beschränkt, die der Repositoryinhaber beziehungsweise das Rechtssystem gewährt. Eine spätere Lizenzierung kann über eine `LICENSE`-Datei vorgenommen werden.
+
+[![pages-build-deployment](https://github.com/PascalHberg/minigames/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/PascalHberg/minigames/actions/workflows/pages/pages-build-deployment)
