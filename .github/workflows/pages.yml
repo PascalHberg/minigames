@@ -21,7 +21,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Spieleliste aus den game.json-Dateien erzeugen
         run: python3 scripts/build_manifest.py
       - uses: actions/configure-pages@v5
