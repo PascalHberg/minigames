@@ -17,6 +17,14 @@ window.GAMES = [
     "order": 2
   },
   {
+    "id": "wordrush",
+    "title": "WORDRUSH",
+    "desc": "Entschlüssle rotierende Buchstaben und finde das gesuchte Wort. Sammle Punkte und knacke deinen Highscore.",
+    "hiKey": "wordrush_hi",
+    "color": "#3b4cff",
+    "order": 2
+  },
+  {
     "id": "neon-dodge",
     "title": "NEON DODGE",
     "desc": "Weiche immer schnelleren Hindernissen aus, sammle Schutzschilde und knacke deinen Highscore.",
