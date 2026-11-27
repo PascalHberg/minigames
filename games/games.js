@@ -17,6 +17,14 @@ window.GAMES = [
     "order": 2
   },
   {
+    "id": "neon-dodge",
+    "title": "NEON DODGE",
+    "desc": "Weiche immer schnelleren Hindernissen aus, sammle Schutzschilde und knacke deinen Highscore.",
+    "hiKey": "neondodge_hi",
+    "color": "#00e5ff",
+    "order": 3
+  },
+  {
     "id": "memory",
     "title": "MEMORY",
     "desc": "Finde alle passenden Kartenpaare in möglichst wenigen Zügen.",
@@ -31,13 +39,5 @@ window.GAMES = [
     "hiKey": "kernelpanic_hi",
     "color": "#2fd6c2",
     "order": 5
-  },
-  {
-  "id": "neon-dodge",
-  "title": "NEON DODGE",
-  "desc": "Weiche immer schnelleren Hindernissen aus, sammle Schutzschilde und knacke deinen Highscore.",
-  "hiKey": "neondodge_hi",
-  "color": "#00e5ff",
-  "order": 3
   }
 ];
