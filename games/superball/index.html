@@ -88,14 +88,13 @@ addEventListener("keydown",function(e){onKey(e,true);});
 addEventListener("keyup",function(e){onKey(e,false);});
 function px(e){var r=cv.getBoundingClientRect();return (e.clientX-r.left)/r.width*W;}
 cv.addEventListener("pointerdown",function(e){if(state!=="play"){start();}target=px(e);try{cv.setPointerCapture(e.pointerId);}catch(_){}});
-cv.addEventListener("pointermove",function(e){if(e.buttons||e.pointerType==="touch"){target=px(e);}});
-cv.addEventListener("pointerup",function(){target=null;});
+cv.addEventListener("pointermove",function(e){target=px(e);});
 
 function update(dt){
   if(state!=="play")return;
   elapsed+=dt;speed=200+Math.min(elapsed*7,520);var sdt=dt*(slowT>0?.45:1);slowT=Math.max(0,slowT-dt);fxUpdate();
   var m=380*dt,old=ball.x;
-  if(target!==null){var dx=target-ball.x;ball.x+=Math.max(-m*1.6,Math.min(m*1.6,dx));}
+  if(target!==null){ball.x=target;}
   else{if(keys.l)ball.x-=m;if(keys.r)ball.x+=m;}
   ball.x=Math.max(ball.r+2,Math.min(W-ball.r-2,ball.x));
   ball.rot+=(ball.x-old)/ball.r;
